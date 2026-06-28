@@ -1,9 +1,9 @@
 /**
- * Dual Server Monitor for Egern.
+ * Multi Server Monitor for Egern.
  *
- * Designed as a two-server version of xcgtb/Egern-Widgets Probe.js.
- * It keeps the same compact white/dark telemetry style, but renders two
- * SSH probes in one widget instead of rotating between servers.
+ * Designed as a multi-server version of xcgtb/Egern-Widgets Probe.js.
+ * It keeps the same compact white/dark telemetry style, but renders every
+ * configured SSH probe in one widget instead of rotating between servers.
  */
 export default async function (ctx) {
   const env = ctx.env || {};
@@ -30,6 +30,9 @@ export default async function (ctx) {
     return '';
   };
 
+  const maxServers = 8;
+  const requestedCount = Math.max(1, Math.min(maxServers, Number(read('SERVER_COUNT', 'NODE_COUNT', 'SSH_SERVER_COUNT')) || 2));
+
   const getServer = (i) => ({
     id: String(i),
     widgetName: read(`SERVER_${i}_NAME`, `NODE${i}_NAME`, `SSH_SERVER_${i}_NAME`) || `Node ${i}`,
@@ -40,7 +43,7 @@ export default async function (ctx) {
     privateKey: read(`SERVER_${i}_KEY`, `NODE${i}_KEY`, `SSH_SERVER_${i}_KEY`),
   });
 
-  const servers = [getServer(1), getServer(2)].filter(s => s.host);
+  const servers = Array.from({ length: requestedCount }, (_, i) => getServer(i + 1)).filter(s => s.host);
 
   const fmtBytes = (b) => {
     if (!Number.isFinite(b)) return '0B';
@@ -227,6 +230,130 @@ export default async function (ctx) {
     ],
   });
 
+  const statPill = (label, value, color) => ({
+    type: 'stack',
+    direction: 'row',
+    alignItems: 'center',
+    gap: 2,
+    children: [
+      { type: 'text', text: label, font: { size: 8, weight: 'bold' }, textColor: C.dim, maxLines: 1 },
+      { type: 'text', text: value, font: { size: 9, weight: 'heavy', family: 'Menlo' }, textColor: color, maxLines: 1 },
+    ],
+  });
+
+  const denseServerLine = (d) => {
+    const okColor = d.ok ? C.netRx : C.red;
+    return {
+      type: 'stack',
+      direction: 'column',
+      gap: 3,
+      padding: [5, 0],
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          gap: 4,
+          children: [
+            { type: 'image', src: d.ok ? 'sf-symbol:server.rack' : 'sf-symbol:xmark.octagon.fill', color: okColor, width: 10, height: 10 },
+            { type: 'text', text: d.hostname, font: { size: 10, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.65 },
+            { type: 'spacer' },
+            { type: 'text', text: d.ok ? `↓${fmtBytes(d.rxRate)}/s ↑${fmtBytes(d.txRate)}/s` : 'ERR', font: { size: 8, weight: 'bold', family: 'Menlo' }, textColor: d.ok ? C.dim : C.red, maxLines: 1, minScale: 0.65 },
+          ],
+        },
+        d.ok ? {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          gap: 6,
+          children: [
+            statPill('C', `${d.cpuPct}%`, C.cpu),
+            statPill('M', `${d.memPct}%`, C.mem),
+            statPill('D', `${d.diskPct}%`, C.disk),
+            { type: 'spacer' },
+            { type: 'text', text: d.ipInfo, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.6 },
+          ],
+        } : { type: 'text', text: d.error, font: { size: 8 }, textColor: C.dim, maxLines: 1, minScale: 0.6 },
+      ],
+    };
+  };
+
+  const compactServerLine = (d) => {
+    if (!d.ok) {
+      return {
+        type: 'stack',
+        direction: 'column',
+        gap: 4,
+        padding: [7, 8],
+        borderRadius: 8,
+        backgroundColor: C.panelBg,
+        children: [
+          {
+            type: 'stack',
+            direction: 'row',
+            alignItems: 'center',
+            gap: 5,
+            children: [
+              { type: 'image', src: 'sf-symbol:xmark.octagon.fill', color: C.red, width: 11, height: 11 },
+              { type: 'text', text: d.hostname, font: { size: 11, weight: 'bold' }, textColor: C.text, maxLines: 1 },
+              { type: 'spacer' },
+              { type: 'text', text: 'offline', font: { size: 9, weight: 'bold', family: 'Menlo' }, textColor: C.red },
+            ],
+          },
+          { type: 'text', text: d.error, font: { size: 9 }, textColor: C.dim, maxLines: 1, minScale: 0.65 },
+        ],
+      };
+    }
+
+    return {
+      type: 'stack',
+      direction: 'column',
+      gap: 5,
+      padding: [7, 8],
+      borderRadius: 8,
+      backgroundColor: C.panelBg,
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          gap: 5,
+          children: [
+            { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: 11, height: 11 },
+            { type: 'text', text: d.hostname, font: { size: 11, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.65 },
+            { type: 'spacer' },
+            { type: 'text', text: `↓${fmtBytes(d.rxRate)}/s ↑${fmtBytes(d.txRate)}/s`, font: { size: 8, family: 'Menlo', weight: 'bold' }, textColor: C.dim, maxLines: 1, minScale: 0.65 },
+          ],
+        },
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          gap: 8,
+          children: [
+            statPill('CPU', `${d.cpuPct}%`, C.cpu),
+            statPill('MEM', `${d.memPct}%`, C.mem),
+            statPill('DSK', `${d.diskPct}%`, C.disk),
+            { type: 'spacer' },
+            { type: 'text', text: `${d.uptime} · ${d.load[0]}`, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
+          ],
+        },
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          gap: 4,
+          children: [
+            { type: 'image', src: 'sf-symbol:network', color: C.dim, width: 9, height: 9 },
+            { type: 'text', text: d.ipInfo, font: { size: 8, family: 'Menlo', weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.65 },
+            { type: 'text', text: '-', font: { size: 8 }, textColor: C.dim },
+            { type: 'text', text: d.locInfo, font: { size: 8, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.65 },
+          ],
+        },
+      ],
+    };
+  };
+
   const serverBlock = (d, compact = false) => {
     if (!d.ok) {
       return {
@@ -313,8 +440,8 @@ export default async function (ctx) {
       padding: [14, 16],
       gap: 8,
       children: [
-        { type: 'text', text: 'Dual Server Monitor', font: { size: 'headline', weight: 'bold' }, textColor: C.text },
-        { type: 'text', text: '请至少配置 SERVER_1_HOST / SERVER_1_USER / SERVER_1_PASSWORD 或 SERVER_1_KEY', font: { size: 'caption1' }, textColor: C.dim, maxLines: 3 },
+        { type: 'text', text: 'Multi Server Monitor', font: { size: 'headline', weight: 'bold' }, textColor: C.text },
+        { type: 'text', text: '请配置 SERVER_COUNT，并至少填入 SERVER_1_HOST / SERVER_1_USER / SERVER_1_PASSWORD 或 SERVER_1_KEY', font: { size: 'caption1' }, textColor: C.dim, maxLines: 3 },
       ],
     };
   }
@@ -338,12 +465,58 @@ export default async function (ctx) {
           gap: 5,
           children: [
             { type: 'image', src: 'sf-symbol:rectangle.split.2x1', color: C.text, width: 12, height: 12 },
-            { type: 'text', text: 'Dual Probe', font: { size: 'subheadline', weight: 'bold' }, textColor: C.text },
+            { type: 'text', text: `Multi Probe · ${results.length}`, font: { size: 'subheadline', weight: 'bold' }, textColor: C.text },
             { type: 'spacer' },
             { type: 'text', text: timeStr.slice(0, 5), font: { size: 9, family: 'Menlo' }, textColor: C.dim },
           ],
         },
-        ...results.slice(0, 2).map(d => serverBlock(d, true)),
+        ...results.map(denseServerLine),
+      ],
+    };
+  }
+
+  const isMedium = family.includes('medium');
+  if (results.length > 2) {
+    const useTwoColumns = !isMedium && results.length >= 3;
+    const rows = [];
+    if (useTwoColumns) {
+      for (let i = 0; i < results.length; i += 2) {
+        const left = compactServerLine(results[i]);
+        const right = results[i + 1] ? compactServerLine(results[i + 1]) : { type: 'spacer', flex: 1 };
+        rows.push({
+          type: 'stack',
+          direction: 'row',
+          gap: 8,
+          children: [
+            { ...left, flex: 1 },
+            { ...right, flex: 1 },
+          ],
+        });
+      }
+    } else {
+      rows.push(...results.map(compactServerLine));
+    }
+
+    return {
+      type: 'widget',
+      backgroundColor: C.bg,
+      padding: [12, 14],
+      gap: 7,
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          gap: 5,
+          children: [
+            { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: 14, height: 14 },
+            { type: 'text', text: `Multi Server Monitor · ${results.length}`, font: { size: 'headline', weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.75 },
+            { type: 'spacer' },
+            { type: 'image', src: 'sf-symbol:arrow.triangle.2.circlepath', color: C.dim, width: 9, height: 9 },
+            { type: 'text', text: ` ${timeStr}`, font: { size: 9, family: 'Menlo', weight: 'medium' }, textColor: C.dim },
+          ],
+        },
+        ...rows,
       ],
     };
   }
@@ -361,13 +534,13 @@ export default async function (ctx) {
         gap: 5,
         children: [
           { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: 14, height: 14 },
-          { type: 'text', text: 'Dual Server Monitor', font: { size: 'headline', weight: 'bold' }, textColor: C.text },
+          { type: 'text', text: `Multi Server Monitor · ${results.length}`, font: { size: 'headline', weight: 'bold' }, textColor: C.text },
           { type: 'spacer' },
           { type: 'image', src: 'sf-symbol:arrow.triangle.2.circlepath', color: C.dim, width: 9, height: 9 },
           { type: 'text', text: ` ${timeStr}`, font: { size: 9, family: 'Menlo', weight: 'medium' }, textColor: C.dim },
         ],
       },
-      ...results.slice(0, 2).map(d => serverBlock(d, compact)),
+      ...results.map(d => serverBlock(d, compact)),
     ],
   };
 }

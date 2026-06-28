@@ -1,11 +1,17 @@
-name: "Dual Server Monitor 双服务器探针"
-description: "同屏显示两台服务器状态，风格参考 xcgtb/Egern-Widgets 的 Server Monitor 探针。"
+name: "Multi Server Monitor 多服务器探针"
+description: "同屏显示多台服务器状态，风格参考 xcgtb/Egern-Widgets 的 Server Monitor 探针。"
 author: "Codex for dashitongzhi"
 homepage: "https://github.com/dashitongzhi/egern-dual-server-widget"
 manual: "https://github.com/dashitongzhi/egern-dual-server-widget#readme"
 icon: server.rack
 
 env_schema:
+  SERVER_COUNT:
+    name: "启用服务器数量"
+    description: "从 1 号槽位开始读取，最多支持 8 台；未填写 Host 的槽位会自动跳过。"
+    options: ["1", "2", "3", "4", "5", "6", "7", "8"]
+    default_value: "2"
+
   SERVER_1_NAME:
     name: "[服务器1] 显示名称"
     description: "显示在小组件上的服务器名称。"
@@ -52,12 +58,150 @@ env_schema:
     description: "与密码二选一，支持直接粘贴私钥。"
     default_value: ""
 
+  SERVER_3_NAME:
+    name: "[服务器3] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 3"
+  SERVER_3_HOST:
+    name: "[服务器3] 主机地址"
+    description: "SSH 服务器 IP 或域名。"
+    default_value: ""
+  SERVER_3_PORT:
+    name: "[服务器3] SSH 端口"
+    default_value: "22"
+  SERVER_3_USER:
+    name: "[服务器3] 用户名"
+    default_value: "root"
+  SERVER_3_PASSWORD:
+    name: "[服务器3] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_3_KEY:
+    name: "[服务器3] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+
+  SERVER_4_NAME:
+    name: "[服务器4] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 4"
+  SERVER_4_HOST:
+    name: "[服务器4] 主机地址"
+    description: "SSH 服务器 IP 或域名。"
+    default_value: ""
+  SERVER_4_PORT:
+    name: "[服务器4] SSH 端口"
+    default_value: "22"
+  SERVER_4_USER:
+    name: "[服务器4] 用户名"
+    default_value: "root"
+  SERVER_4_PASSWORD:
+    name: "[服务器4] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_4_KEY:
+    name: "[服务器4] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+
+  SERVER_5_NAME:
+    name: "[服务器5] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 5"
+  SERVER_5_HOST:
+    name: "[服务器5] 主机地址"
+    description: "SSH 服务器 IP 或域名。"
+    default_value: ""
+  SERVER_5_PORT:
+    name: "[服务器5] SSH 端口"
+    default_value: "22"
+  SERVER_5_USER:
+    name: "[服务器5] 用户名"
+    default_value: "root"
+  SERVER_5_PASSWORD:
+    name: "[服务器5] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_5_KEY:
+    name: "[服务器5] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+
+  SERVER_6_NAME:
+    name: "[服务器6] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 6"
+  SERVER_6_HOST:
+    name: "[服务器6] 主机地址"
+    description: "SSH 服务器 IP 或域名。"
+    default_value: ""
+  SERVER_6_PORT:
+    name: "[服务器6] SSH 端口"
+    default_value: "22"
+  SERVER_6_USER:
+    name: "[服务器6] 用户名"
+    default_value: "root"
+  SERVER_6_PASSWORD:
+    name: "[服务器6] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_6_KEY:
+    name: "[服务器6] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+
+  SERVER_7_NAME:
+    name: "[服务器7] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 7"
+  SERVER_7_HOST:
+    name: "[服务器7] 主机地址"
+    description: "SSH 服务器 IP 或域名。"
+    default_value: ""
+  SERVER_7_PORT:
+    name: "[服务器7] SSH 端口"
+    default_value: "22"
+  SERVER_7_USER:
+    name: "[服务器7] 用户名"
+    default_value: "root"
+  SERVER_7_PASSWORD:
+    name: "[服务器7] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_7_KEY:
+    name: "[服务器7] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+
+  SERVER_8_NAME:
+    name: "[服务器8] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 8"
+  SERVER_8_HOST:
+    name: "[服务器8] 主机地址"
+    description: "SSH 服务器 IP 或域名。"
+    default_value: ""
+  SERVER_8_PORT:
+    name: "[服务器8] SSH 端口"
+    default_value: "22"
+  SERVER_8_USER:
+    name: "[服务器8] 用户名"
+    default_value: "root"
+  SERVER_8_PASSWORD:
+    name: "[服务器8] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_8_KEY:
+    name: "[服务器8] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+
 scriptings:
   - generic:
-      name: Dual Server Monitor 双服务器探针
+      name: Multi Server Monitor 多服务器探针
       script_url: https://raw.githubusercontent.com/dashitongzhi/egern-dual-server-widget/main/DualProbe.js
-      timeout: 20
+      timeout: 30
 
 widgets:
-  - name: Dual Server Monitor 双服务器探针
-    script_name: Dual Server Monitor 双服务器探针
+  - name: Multi Server Monitor 多服务器探针
+    script_name: Multi Server Monitor 多服务器探针
