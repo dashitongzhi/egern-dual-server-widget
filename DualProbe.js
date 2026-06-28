@@ -257,35 +257,40 @@ export default async function (ctx) {
     ],
   });
 
-  const metricLine = (label, pct, value, color, dense) => ({
+  const metricLine = (label, pct, value, color, compactTile, tinyTile) => ({
     type: 'stack',
     direction: 'column',
-    gap: dense ? 1 : 2,
-    height: dense ? 13 : 16,
+    gap: tinyTile ? 1 : compactTile ? 1 : 2,
+    height: tinyTile ? 9 : compactTile ? 11 : 16,
     children: [
-      labelValueRow(label, value, { labelSize: dense ? 7 : 9, valueSize: dense ? 7 : 9, color, mono: true, height: dense ? 8 : 10 }),
-      bar(pct, color, dense ? 3 : 4),
+      labelValueRow(label, value, {
+        labelSize: tinyTile ? 6.5 : compactTile ? 7 : 9,
+        valueSize: tinyTile ? 6.5 : compactTile ? 7 : 9,
+        color,
+        mono: true,
+        height: tinyTile ? 6 : compactTile ? 7 : 10,
+      }),
+      bar(pct, color, tinyTile ? 2 : compactTile ? 3 : 4),
     ],
   });
 
-  const metricLines = (d, dense) => [
-    metricLine('CPU', d.cpuPct, `${d.cpuPct}%`, usageColor(d.cpuPct, C.green), dense),
-    metricLine('MEM', d.memPct, `${d.memPct}%`, usageColor(d.memPct, C.green), dense),
-    metricLine('TRAF', d.netPct, throughputText(d), C.green, dense),
-    metricLine('DSK', d.diskPct, `${d.diskPct}%`, usageColor(d.diskPct, C.green), dense),
+  const metricLines = (d, compactTile, tinyTile) => [
+    metricLine('CPU', d.cpuPct, `${d.cpuPct}%`, usageColor(d.cpuPct, C.green), compactTile, tinyTile),
+    metricLine('MEM', d.memPct, `${d.memPct}%`, usageColor(d.memPct, C.green), compactTile, tinyTile),
+    metricLine('TRAF', d.netPct, throughputText(d), C.green, compactTile, tinyTile),
+    metricLine('DSK', d.diskPct, `${d.diskPct}%`, usageColor(d.diskPct, C.green), compactTile, tinyTile),
   ];
 
   const serverTile = (d, opts = {}) => {
     const compactTile = !!opts.compactTile;
     const tinyTile = !!opts.tinyTile;
-    const dense = compactTile || tinyTile;
-    const pad = tinyTile ? [5, 6] : compactTile ? [7, 7] : [10, 10];
+    const pad = tinyTile ? [4, 5] : compactTile ? [7, 8] : [11, 12];
     const titleSize = tinyTile ? 9 : compactTile ? 10 : 13;
     const statusSize = tinyTile ? 7 : compactTile ? 8 : 9;
-    const headerIcon = tinyTile ? 13 : compactTile ? 15 : 18;
-    const cardGap = tinyTile ? 2 : compactTile ? 3 : 5;
+    const headerIcon = tinyTile ? 12 : compactTile ? 15 : 18;
+    const cardGap = tinyTile ? 1 : compactTile ? 2 : 5;
     const metaSize = tinyTile ? 7 : compactTile ? 7 : 9;
-    const cardRadius = 8;
+    const cardRadius = tinyTile ? 14 : compactTile ? 18 : 22;
 
     const cardShell = (children) => ({
       type: 'stack',
@@ -315,7 +320,7 @@ export default async function (ctx) {
           direction: 'row',
           alignItems: 'center',
           gap: 5,
-          height: tinyTile ? 13 : 16,
+          height: tinyTile ? 11 : compactTile ? 15 : 18,
           children: [
             { type: 'image', src: 'sf-symbol:xmark.octagon.fill', color: C.red, width: headerIcon, height: headerIcon },
             { type: 'text', text: d.hostname, font: { size: titleSize, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.45 },
@@ -334,7 +339,7 @@ export default async function (ctx) {
         direction: 'row',
         alignItems: 'center',
         gap: tinyTile ? 3 : 5,
-        height: tinyTile ? 13 : compactTile ? 16 : 20,
+        height: tinyTile ? 11 : compactTile ? 15 : 20,
         children: [
           { type: 'text', text: flagEmoji(d.countryCode), font: { size: tinyTile ? 12 : 15 }, textColor: C.text, maxLines: 1 },
           { type: 'text', text: d.hostname, font: { size: titleSize, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.38 },
@@ -345,15 +350,15 @@ export default async function (ctx) {
       },
       divider(),
       ...(tinyTile ? [] : [
-        labelValueRow('OS', d.osInfo, { labelSize: metaSize, valueSize: metaSize, minScale: 0.35, height: dense ? 9 : 12 }),
+        labelValueRow('OS', d.osInfo, { labelSize: metaSize, valueSize: metaSize, minScale: 0.35, height: compactTile ? 8 : 12 }),
       ]),
-      ...metricLines(d, dense),
+      ...metricLines(d, compactTile, tinyTile),
       ...(tinyTile ? [
-        labelValueRow('NET', throughputText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.4, height: 8 }),
+        labelValueRow('NET', throughputText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.4, height: 7 }),
       ] : [
-        labelValueRow('总流量', trafficTotalText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: dense ? 9 : 12 }),
-        labelValueRow('网络', networkRateText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: dense ? 9 : 12 }),
-        labelValueRow('运行时间', d.uptime, { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: dense ? 9 : 12 }),
+        labelValueRow('总流量', trafficTotalText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: compactTile ? 8 : 12 }),
+        labelValueRow('网络', networkRateText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: compactTile ? 8 : 12 }),
+        labelValueRow('运行时间', d.uptime, { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: compactTile ? 8 : 12 }),
       ]),
     ]);
   };
@@ -398,19 +403,19 @@ export default async function (ctx) {
   let tinyTile = false;
 
   if (isSmall) {
-    padding = [5, 5];
+    padding = [10, 10];
     gap = 4;
     columns = 1;
     compactTile = true;
     tinyTile = count > 1;
   } else if (isMedium) {
-    padding = [4, 5];
-    gap = 5;
+    padding = [10, 10];
+    gap = 8;
     columns = count === 1 ? 1 : 2;
     compactTile = true;
     tinyTile = count > 2;
   } else if (isLarge) {
-    padding = [7, 7];
+    padding = [10, 10];
     gap = 6;
     columns = count === 1 ? 1 : 2;
     compactTile = count > 1;

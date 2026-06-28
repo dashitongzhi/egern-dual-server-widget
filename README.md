@@ -37,7 +37,7 @@ egern:/modules/new?name=Multi%20Server%20Monitor&url=https%3A%2F%2Fraw.githubuse
 ## 布局
 
 - 小号组件：1 台时显示一张紧凑 Komari 风格卡片；多台时切换更密的单列卡片。
-- 中号组件：2 台时固定左右两张等宽卡片，外边距按 iPhone 小号组件比例压缩，避免超出边缘。
+- 中号组件：2 台时固定左右两张等宽卡片，并保留 iPhone 小组件圆角安全内距，避免卡片圆角被系统裁切。
 - 大号组件：自动两列铺满；5 到 8 台时切换超密卡片，优先保留每台的 `CPU / MEM / TRAF / DSK` 四项。
 
 小组件会通过 SSH 读取 CPU、内存、实时流量、磁盘、累计网卡流量、运行时间、公网 IP/位置和实时上下行速度。每台服务器都显示 `CPU / MEM / TRAF / DSK` 四项，其中 `TRAF` 是 `/proc/net/dev` 两次刷新之间计算出的实时吞吐。
