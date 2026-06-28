@@ -11,15 +11,18 @@ export default async function (ctx) {
   const C = {
     bg: { light: '#FFFFFF', dark: '#121212' },
     barBg: { light: '#0000001A', dark: '#FFFFFF22' },
-    panelBg: { light: '#F7F7FA', dark: '#1C1C1E' },
+    panelBg: { light: '#F7F7FA', dark: '#1F1B16' },
     text: { light: '#1C1C1E', dark: '#FFFFFF' },
-    dim: { light: '#8E8E93', dark: '#8E8E93' },
+    dim: { light: '#8E8E93', dark: '#B8B2AA' },
+    faint: { light: '#D9D9DE', dark: '#3C352C' },
     cpu: { light: '#007AFF', dark: '#0A84FF' },
     mem: { light: '#AF52DE', dark: '#BF5AF2' },
     disk: { light: '#FF9500', dark: '#FF9F0A' },
     netRx: { light: '#34C759', dark: '#30D158' },
     netTx: { light: '#5856D6', dark: '#5E5CE6' },
     red: { light: '#FF3B30', dark: '#FF453A' },
+    okBg: { light: '#E7F8EE', dark: '#163724' },
+    okText: { light: '#128A48', dark: '#35E487' },
   };
 
   const read = (...keys) => {
@@ -62,6 +65,14 @@ export default async function (ctx) {
 
   const throughputText = (d) => `${fmtBytes((d.rxRate || 0) + (d.txRate || 0))}/s`;
 
+  const trafficTotalText = (d) => `↑ ${fmtBytes(d.netTx || 0)} ↓ ${fmtBytes(d.netRx || 0)}`;
+  const networkRateText = (d) => `↑ ${fmtBytes(d.txRate || 0)}/s ↓ ${fmtBytes(d.rxRate || 0)}/s`;
+  const usageColor = (pct, fallback) => {
+    if (pct >= 80) return C.red;
+    if (pct >= 60) return C.disk;
+    return fallback || C.netRx;
+  };
+
   const normalizePrivateKey = (privateKey) => {
     if (!privateKey || typeof privateKey !== 'string') return '';
     const raw = privateKey.trim().replace(/\\n/g, '\n').replace(/\\r/g, '');
@@ -99,6 +110,7 @@ export default async function (ctx) {
         "awk '/MemTotal/{t=$2}/MemFree/{f=$2}/Buffers/{b=$2}/^Cached/{c=$2}END{print t,f,b,c}' /proc/meminfo",
         'df -B1 / | tail -1',
         'nproc',
+        "sh -c '. /etc/os-release 2>/dev/null; printf \"%s / %s\" \"${NAME:-Linux}\" \"$(uname -m)\"'",
         "curl -s -m 2 http://ip-api.com/line?fields=country,city,query || echo ''",
         "awk '/^ *(eth|en|wlan|ens|eno|bond|veth)/{rx+=$2;tx+=$10}END{print rx,tx}' /proc/net/dev",
       ];
@@ -137,16 +149,17 @@ export default async function (ctx) {
       const diskUsed = Number(df[2]) || 0;
       const diskPct = parseInt(df[4], 10) || 0;
       const cores = parseInt(p[6], 10) || 1;
+      const osInfo = p[7] || 'Linux';
 
       let ipInfo = server.host;
       let locInfo = '未知';
-      const ipApiLines = (p[7] || '').split('\n').map(s => s.trim()).filter(Boolean);
+      const ipApiLines = (p[8] || '').split('\n').map(s => s.trim()).filter(Boolean);
       if (ipApiLines.length >= 3) {
         locInfo = `${ipApiLines[0]} ${ipApiLines[1]}`.replace(/United States/g, 'US').replace(/United Kingdom/g, 'UK');
         ipInfo = ipApiLines[2];
       }
 
-      const nn = (p[8] || '0 0').split(' ');
+      const nn = (p[9] || '0 0').split(' ');
       const netRx = Number(nn[0]) || 0;
       const netTx = Number(nn[1]) || 0;
       const netKey = `_dual_net_${server.id}`;
@@ -177,8 +190,11 @@ export default async function (ctx) {
         diskTotal,
         diskUsed,
         diskPct,
+        osInfo,
         rxRate,
         txRate,
+        netRx,
+        netTx,
         netPct: throughputPct(rxRate, txRate),
         ipInfo,
         locInfo,
@@ -195,10 +211,6 @@ export default async function (ctx) {
       };
     }
   };
-
-  const pad = n => String(n).padStart(2, '0');
-  const now = new Date();
-  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
   const bar = (pct, color, h = 5, segCount = 18) => {
     const activeCount = Math.round((Math.max(0, Math.min(100, pct)) / 100) * segCount);
@@ -218,83 +230,67 @@ export default async function (ctx) {
     };
   };
 
-  const metricRow = (icon, label, pct, value, color) => ({
+  const divider = () => ({
     type: 'stack',
-    direction: 'column',
-    gap: 3,
-    children: [
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        gap: 4,
-        children: [
-          { type: 'image', src: `sf-symbol:${icon}`, color, width: 10, height: 10 },
-          { type: 'text', text: label, font: { size: 10, weight: 'bold' }, textColor: C.text },
-          { type: 'spacer' },
-          { type: 'text', text: value, font: { size: 10, weight: 'heavy', family: 'Menlo' }, textColor: color, maxLines: 1, minScale: 0.75 },
-        ],
-      },
-      bar(pct, color, 5),
-    ],
+    height: 1,
+    backgroundColor: C.faint,
+    children: [{ type: 'spacer' }],
   });
 
-  const statPill = (label, value, color) => ({
+  const labelValueRow = (label, value, opts = {}) => ({
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 6,
     children: [
-      { type: 'text', text: label, font: { size: 8, weight: 'bold' }, textColor: C.dim, maxLines: 1 },
-      { type: 'text', text: value, font: { size: 9, weight: 'heavy', family: 'Menlo' }, textColor: color, maxLines: 1 },
+      { type: 'text', text: label, font: { size: opts.labelSize || 9, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.75 },
+      { type: 'spacer' },
+      { type: 'text', text: value, font: { size: opts.valueSize || 10, weight: opts.weight || 'bold', family: opts.mono ? 'Menlo' : undefined }, textColor: opts.color || C.text, maxLines: 1, minScale: opts.minScale || 0.55 },
     ],
   });
 
-  const denseServerLine = (d) => {
-    const okColor = d.ok ? C.netRx : C.red;
+  const miniMetric = (label, pct, value, color, detail, compactTile) => ({
+    type: 'stack',
+    direction: 'column',
+    gap: compactTile ? 2 : 3,
+    children: [
+      labelValueRow(label, value, { labelSize: compactTile ? 8 : 9, valueSize: compactTile ? 9 : 10, color, mono: true }),
+      bar(pct, color, compactTile ? 3 : 4, compactTile ? 12 : 16),
+      ...(detail && !compactTile ? [{ type: 'text', text: detail, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.55 }] : []),
+    ],
+  });
+
+  const metricGrid = (d, tinyTile) => {
+    const metricItems = [
+      miniMetric('CPU', d.cpuPct, `${d.cpuPct}%`, usageColor(d.cpuPct, C.netRx), null, true),
+      miniMetric('MEM', d.memPct, `${d.memPct}%`, usageColor(d.memPct, C.netRx), null, true),
+      miniMetric('TRAF', d.netPct, throughputText(d), C.netRx, null, true),
+      miniMetric('DSK', d.diskPct, `${d.diskPct}%`, usageColor(d.diskPct, C.netRx), null, true),
+    ];
     return {
       type: 'stack',
       direction: 'column',
-      gap: 3,
-      padding: [5, 0],
+      gap: tinyTile ? 3 : 4,
       children: [
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 4,
-          children: [
-            { type: 'image', src: d.ok ? 'sf-symbol:server.rack' : 'sf-symbol:xmark.octagon.fill', color: okColor, width: 10, height: 10 },
-            { type: 'text', text: d.hostname, font: { size: 10, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.65 },
-            { type: 'spacer' },
-            { type: 'text', text: d.ok ? `↓${fmtBytes(d.rxRate)}/s ↑${fmtBytes(d.txRate)}/s` : 'ERR', font: { size: 8, weight: 'bold', family: 'Menlo' }, textColor: d.ok ? C.dim : C.red, maxLines: 1, minScale: 0.65 },
-          ],
-        },
-        d.ok ? {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 6,
-          children: [
-            statPill('C', `${d.cpuPct}%`, C.cpu),
-            statPill('M', `${d.memPct}%`, C.mem),
-            statPill('T', throughputText(d), C.netRx),
-            statPill('D', `${d.diskPct}%`, C.disk),
-            { type: 'spacer' },
-            { type: 'text', text: d.ipInfo, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.6 },
-          ],
-        } : { type: 'text', text: d.error, font: { size: 8 }, textColor: C.dim, maxLines: 1, minScale: 0.6 },
+        { type: 'stack', direction: 'row', gap: tinyTile ? 5 : 7, children: [{ ...metricItems[0], flex: 1 }, { ...metricItems[1], flex: 1 }] },
+        { type: 'stack', direction: 'row', gap: tinyTile ? 5 : 7, children: [{ ...metricItems[2], flex: 1 }, { ...metricItems[3], flex: 1 }] },
       ],
     };
   };
 
-  const compactServerLine = (d) => {
+  const serverTile = (d, opts = {}) => {
+    const compactTile = !!opts.compactTile;
+    const tinyTile = !!opts.tinyTile;
+    const pad = tinyTile ? [7, 7] : compactTile ? [8, 8] : [10, 10];
+    const titleSize = tinyTile ? 10 : compactTile ? 11 : 13;
+    const statusSize = tinyTile ? 8 : compactTile ? 9 : 10;
+
     if (!d.ok) {
       return {
         type: 'stack',
         direction: 'column',
-        gap: 4,
-        padding: [7, 8],
+        gap: 5,
+        padding: pad,
         borderRadius: 8,
         backgroundColor: C.panelBg,
         children: [
@@ -304,13 +300,14 @@ export default async function (ctx) {
             alignItems: 'center',
             gap: 5,
             children: [
-              { type: 'image', src: 'sf-symbol:xmark.octagon.fill', color: C.red, width: 11, height: 11 },
-              { type: 'text', text: d.hostname, font: { size: 11, weight: 'bold' }, textColor: C.text, maxLines: 1 },
+              { type: 'image', src: 'sf-symbol:xmark.octagon.fill', color: C.red, width: 12, height: 12 },
+              { type: 'text', text: d.hostname, font: { size: titleSize, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.55 },
               { type: 'spacer' },
-              { type: 'text', text: 'offline', font: { size: 9, weight: 'bold', family: 'Menlo' }, textColor: C.red },
+              { type: 'text', text: '离线', font: { size: statusSize, weight: 'bold' }, textColor: C.red, maxLines: 1 },
             ],
           },
-          { type: 'text', text: d.error, font: { size: 9 }, textColor: C.dim, maxLines: 1, minScale: 0.65 },
+          divider(),
+          { type: 'text', text: d.error, font: { size: 9 }, textColor: C.dim, maxLines: 3, minScale: 0.55 },
         ],
       };
     }
@@ -318,8 +315,8 @@ export default async function (ctx) {
     return {
       type: 'stack',
       direction: 'column',
-      gap: 5,
-      padding: [7, 8],
+      gap: tinyTile ? 3 : compactTile ? 4 : 5,
+      padding: pad,
       borderRadius: 8,
       backgroundColor: C.panelBg,
       children: [
@@ -329,120 +326,44 @@ export default async function (ctx) {
           alignItems: 'center',
           gap: 5,
           children: [
-            { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: 11, height: 11 },
-            { type: 'text', text: d.hostname, font: { size: 11, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.65 },
+            { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: tinyTile ? 11 : 13, height: tinyTile ? 11 : 13 },
+            { type: 'text', text: d.hostname, font: { size: titleSize, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.45 },
             { type: 'spacer' },
-            { type: 'text', text: `↓${fmtBytes(d.rxRate)}/s ↑${fmtBytes(d.txRate)}/s`, font: { size: 8, family: 'Menlo', weight: 'bold' }, textColor: C.dim, maxLines: 1, minScale: 0.65 },
+            { type: 'image', src: 'sf-symbol:arrow.up.right', color: C.disk, width: tinyTile ? 8 : 10, height: tinyTile ? 8 : 10 },
+            { type: 'text', text: '在线', font: { size: statusSize, weight: 'bold' }, textColor: C.okText, backgroundColor: C.okBg, padding: [2, 5], borderRadius: 4, maxLines: 1 },
           ],
         },
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 8,
-          children: [
-            statPill('CPU', `${d.cpuPct}%`, C.cpu),
-            statPill('MEM', `${d.memPct}%`, C.mem),
-            statPill('TRAF', throughputText(d), C.netRx),
-            statPill('DSK', `${d.diskPct}%`, C.disk),
-            { type: 'spacer' },
-            { type: 'text', text: `${d.uptime} · ${d.load[0]}`, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
+        ...(tinyTile ? [
+          metricGrid(d, true),
+          labelValueRow('总量', trafficTotalText(d), { labelSize: 8, valueSize: 8, mono: true, minScale: 0.45 }),
+        ] : [
+          divider(),
+          labelValueRow('OS', d.osInfo, { labelSize: 8, valueSize: compactTile ? 8 : 10, minScale: 0.45 }),
+          compactTile ? metricGrid(d, false) : [
+            miniMetric('CPU', d.cpuPct, `${d.cpuPct}%`, usageColor(d.cpuPct, C.netRx), null, false),
+            miniMetric('MEM', d.memPct, `${d.memPct}%`, usageColor(d.memPct, C.netRx), `${fmtBytes(d.memUsed)} / ${fmtBytes(d.memTotal)}`, false),
+            miniMetric('TRAF', d.netPct, throughputText(d), C.netRx, null, false),
+            miniMetric('DSK', d.diskPct, `${d.diskPct}%`, usageColor(d.diskPct, C.netRx), `${fmtBytes(d.diskUsed)} / ${fmtBytes(d.diskTotal)}`, false),
           ],
-        },
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 4,
-          children: [
-            { type: 'image', src: 'sf-symbol:network', color: C.dim, width: 9, height: 9 },
-            { type: 'text', text: d.ipInfo, font: { size: 8, family: 'Menlo', weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.65 },
-            { type: 'text', text: '-', font: { size: 8 }, textColor: C.dim },
-            { type: 'text', text: d.locInfo, font: { size: 8, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.65 },
-          ],
-        },
+          labelValueRow('总流量', trafficTotalText(d), { labelSize: 8, valueSize: compactTile ? 8 : 9, mono: true, minScale: 0.45 }),
+          labelValueRow('网络', networkRateText(d), { labelSize: 8, valueSize: compactTile ? 8 : 9, mono: true, minScale: 0.45 }),
+          labelValueRow('运行时间', d.uptime, { labelSize: 8, valueSize: compactTile ? 8 : 9, mono: true, minScale: 0.45 }),
+        ].flat()),
       ],
     };
   };
 
-  const serverBlock = (d, compact = false) => {
-    if (!d.ok) {
-      return {
-        type: 'stack',
-        direction: 'column',
-        gap: 5,
-        padding: compact ? 0 : [10, 10],
-        borderRadius: compact ? 0 : 8,
-        backgroundColor: compact ? '#00000000' : C.panelBg,
-        children: [
-          {
-            type: 'stack',
-            direction: 'row',
-            alignItems: 'center',
-            gap: 5,
-            children: [
-              { type: 'image', src: 'sf-symbol:xmark.octagon.fill', color: C.red, width: 12, height: 12 },
-              { type: 'text', text: d.hostname, font: { size: compact ? 11 : 12, weight: 'bold' }, textColor: C.text, maxLines: 1 },
-            ],
-          },
-          { type: 'text', text: d.error, font: { size: 9 }, textColor: C.dim, maxLines: compact ? 1 : 2, minScale: 0.75 },
-        ],
-      };
+  const tileRows = (items, columns, compactTile, tinyTile) => {
+    const rows = [];
+    for (let i = 0; i < items.length; i += columns) {
+      const children = [];
+      for (let j = 0; j < columns; j++) {
+        const item = items[i + j];
+        children.push(item ? { ...serverTile(item, { compactTile, tinyTile }), flex: 1 } : { type: 'spacer', flex: 1 });
+      }
+      rows.push({ type: 'stack', direction: 'row', gap: tinyTile ? 5 : 7, children });
     }
-
-    const rows = [
-      metricRow('cpu', `CPU ${d.cores}C`, d.cpuPct, `${d.cpuPct}%`, C.cpu),
-      metricRow('memorychip', 'MEM', d.memPct, `${d.memPct}%`, C.mem),
-      metricRow('antenna.radiowaves.left.and.right', 'TRAF', d.netPct, throughputText(d), C.netRx),
-      metricRow('internaldrive', 'DSK', d.diskPct, `${d.diskPct}%`, C.disk),
-    ];
-
-    return {
-      type: 'stack',
-      direction: 'column',
-      gap: compact ? 5 : 7,
-      padding: compact ? 0 : [10, 10],
-      borderRadius: compact ? 0 : 8,
-      backgroundColor: compact ? '#00000000' : C.panelBg,
-      children: [
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 5,
-          children: [
-            { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: 12, height: 12 },
-            { type: 'text', text: d.hostname, font: { size: compact ? 11 : 12, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.65 },
-            { type: 'spacer' },
-            { type: 'text', text: `↓${fmtBytes(d.rxRate)}/s ↑${fmtBytes(d.txRate)}/s`, font: { size: 9, family: 'Menlo', weight: 'bold' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
-          ],
-        },
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 4,
-          children: [
-            { type: 'image', src: 'sf-symbol:network', color: C.text, width: 10, height: 10 },
-            { type: 'text', text: d.ipInfo, font: { size: 9, family: 'Menlo', weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.7 },
-            { type: 'text', text: '-', font: { size: 9 }, textColor: C.dim },
-            { type: 'text', text: d.locInfo, font: { size: 9, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
-          ],
-        },
-        ...rows,
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 4,
-          children: [
-            { type: 'text', text: `UP ${d.uptime}`, font: { size: 9, weight: 'medium' }, textColor: C.dim, maxLines: 1 },
-            { type: 'spacer' },
-            { type: 'text', text: `LOAD ${d.load.join(' ')}`, font: { size: 9, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.75 },
-          ],
-        },
-      ],
-    };
+    return rows;
   };
 
   if (servers.length === 0) {
@@ -461,98 +382,45 @@ export default async function (ctx) {
   const results = await Promise.all(servers.map(runProbe));
   const family = String(ctx.widgetFamily || '').toLowerCase();
   const isSmall = family.includes('small');
-  const compact = isSmall || family.includes('medium');
+  const isMedium = family.includes('medium');
+  const isLarge = family.includes('large');
+  const count = results.length;
+
+  let padding = [8, 8];
+  let gap = 6;
+  let columns = 1;
+  let compactTile = true;
+  let tinyTile = false;
 
   if (isSmall) {
-    return {
-      type: 'widget',
-      backgroundColor: C.bg,
-      padding: [12, 14],
-      gap: 6,
-      children: [
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 5,
-          children: [
-            { type: 'image', src: 'sf-symbol:rectangle.split.2x1', color: C.text, width: 12, height: 12 },
-            { type: 'text', text: `Multi Probe · ${results.length}`, font: { size: 'subheadline', weight: 'bold' }, textColor: C.text },
-            { type: 'spacer' },
-            { type: 'text', text: timeStr.slice(0, 5), font: { size: 9, family: 'Menlo' }, textColor: C.dim },
-          ],
-        },
-        ...results.map(denseServerLine),
-      ],
-    };
-  }
-
-  const isMedium = family.includes('medium');
-  if (results.length > 2) {
-    const useTwoColumns = !isMedium && results.length >= 3;
-    const rows = [];
-    if (useTwoColumns) {
-      for (let i = 0; i < results.length; i += 2) {
-        const left = compactServerLine(results[i]);
-        const right = results[i + 1] ? compactServerLine(results[i + 1]) : { type: 'spacer', flex: 1 };
-        rows.push({
-          type: 'stack',
-          direction: 'row',
-          gap: 8,
-          children: [
-            { ...left, flex: 1 },
-            { ...right, flex: 1 },
-          ],
-        });
-      }
-    } else {
-      rows.push(...results.map(compactServerLine));
-    }
-
-    return {
-      type: 'widget',
-      backgroundColor: C.bg,
-      padding: [12, 14],
-      gap: 7,
-      children: [
-        {
-          type: 'stack',
-          direction: 'row',
-          alignItems: 'center',
-          gap: 5,
-          children: [
-            { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: 14, height: 14 },
-            { type: 'text', text: `Multi Server Monitor · ${results.length}`, font: { size: 'headline', weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.75 },
-            { type: 'spacer' },
-            { type: 'image', src: 'sf-symbol:arrow.triangle.2.circlepath', color: C.dim, width: 9, height: 9 },
-            { type: 'text', text: ` ${timeStr}`, font: { size: 9, family: 'Menlo', weight: 'medium' }, textColor: C.dim },
-          ],
-        },
-        ...rows,
-      ],
-    };
+    padding = count > 1 ? [5, 5] : [7, 7];
+    gap = 4;
+    columns = 1;
+    compactTile = true;
+    tinyTile = count > 1;
+  } else if (isMedium) {
+    padding = [7, 7];
+    gap = 6;
+    columns = count === 1 ? 1 : 2;
+    compactTile = true;
+    tinyTile = count > 2;
+  } else if (isLarge) {
+    padding = [9, 9];
+    gap = 6;
+    columns = count === 1 ? 1 : 2;
+    compactTile = count > 1;
+    tinyTile = count > 4;
+  } else {
+    columns = count === 1 ? 1 : 2;
+    compactTile = count > 1;
+    tinyTile = count > 4;
   }
 
   return {
     type: 'widget',
     backgroundColor: C.bg,
-    padding: [12, 14],
-    gap: compact ? 7 : 8,
-    children: [
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        gap: 5,
-        children: [
-          { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: 14, height: 14 },
-          { type: 'text', text: `Multi Server Monitor · ${results.length}`, font: { size: 'headline', weight: 'bold' }, textColor: C.text },
-          { type: 'spacer' },
-          { type: 'image', src: 'sf-symbol:arrow.triangle.2.circlepath', color: C.dim, width: 9, height: 9 },
-          { type: 'text', text: ` ${timeStr}`, font: { size: 9, family: 'Menlo', weight: 'medium' }, textColor: C.dim },
-        ],
-      },
-      ...results.map(d => serverBlock(d, compact)),
-    ],
+    padding,
+    gap,
+    children: tileRows(results, columns, compactTile, tinyTile),
   };
 }
