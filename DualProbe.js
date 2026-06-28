@@ -54,6 +54,14 @@ export default async function (ctx) {
     return Math.round(b) + 'B';
   };
 
+  const throughputPct = (rxRate, txRate) => {
+    const rate = Math.max(0, Number(rxRate) || 0) + Math.max(0, Number(txRate) || 0);
+    if (rate <= 0) return 0;
+    return Math.min(100, Math.round(Math.log10(rate + 1) * 10));
+  };
+
+  const throughputText = (d) => `${fmtBytes((d.rxRate || 0) + (d.txRate || 0))}/s`;
+
   const normalizePrivateKey = (privateKey) => {
     if (!privateKey || typeof privateKey !== 'string') return '';
     const raw = privateKey.trim().replace(/\\n/g, '\n').replace(/\\r/g, '');
@@ -171,6 +179,7 @@ export default async function (ctx) {
         diskPct,
         rxRate,
         txRate,
+        netPct: throughputPct(rxRate, txRate),
         ipInfo,
         locInfo,
       };
@@ -269,6 +278,7 @@ export default async function (ctx) {
           children: [
             statPill('C', `${d.cpuPct}%`, C.cpu),
             statPill('M', `${d.memPct}%`, C.mem),
+            statPill('T', throughputText(d), C.netRx),
             statPill('D', `${d.diskPct}%`, C.disk),
             { type: 'spacer' },
             { type: 'text', text: d.ipInfo, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.6 },
@@ -333,6 +343,7 @@ export default async function (ctx) {
           children: [
             statPill('CPU', `${d.cpuPct}%`, C.cpu),
             statPill('MEM', `${d.memPct}%`, C.mem),
+            statPill('TRAF', throughputText(d), C.netRx),
             statPill('DSK', `${d.diskPct}%`, C.disk),
             { type: 'spacer' },
             { type: 'text', text: `${d.uptime} · ${d.load[0]}`, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
@@ -382,6 +393,7 @@ export default async function (ctx) {
     const rows = [
       metricRow('cpu', `CPU ${d.cores}C`, d.cpuPct, `${d.cpuPct}%`, C.cpu),
       metricRow('memorychip', 'MEM', d.memPct, `${d.memPct}%`, C.mem),
+      metricRow('antenna.radiowaves.left.and.right', 'TRAF', d.netPct, throughputText(d), C.netRx),
       metricRow('internaldrive', 'DSK', d.diskPct, `${d.diskPct}%`, C.disk),
     ];
 

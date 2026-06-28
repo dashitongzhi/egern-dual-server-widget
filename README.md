@@ -40,4 +40,4 @@ egern:/modules/new?name=Multi%20Server%20Monitor&url=https%3A%2F%2Fraw.githubuse
 - 中号组件：使用紧凑服务器行，适合 2 到 5 台。
 - 大号组件：3 台及以上自动两列排列，尽量铺满组件区域。
 
-小组件会通过 SSH 读取 CPU、内存、磁盘、运行时间、公网 IP/位置和实时上下行速度。
+小组件会通过 SSH 读取 CPU、内存、实时流量、磁盘、运行时间、公网 IP/位置和实时上下行速度。每台服务器都显示 `CPU / MEM / TRAF / DSK` 四项。
