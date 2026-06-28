@@ -38,10 +38,6 @@ export default async function (ctx) {
     username: read(`SERVER_${i}_USER`, `NODE${i}_USER`, `SSH_SERVER_${i}_USER`) || 'root',
     password: read(`SERVER_${i}_PASSWORD`, `NODE${i}_PASSWORD`, `SSH_SERVER_${i}_PWD`),
     privateKey: read(`SERVER_${i}_KEY`, `NODE${i}_KEY`, `SSH_SERVER_${i}_KEY`),
-    bwhVeid: read(`SERVER_${i}_BWH_VEID`, `NODE${i}_BWH_VEID`),
-    bwhApiKey: read(`SERVER_${i}_BWH_API_KEY`, `NODE${i}_BWH_API_KEY`),
-    trafficLimitGB: Number(read(`SERVER_${i}_TRAFFIC_LIMIT`, `NODE${i}_TRAFFIC_LIMIT`)) || 2000,
-    resetDay: Number(read(`SERVER_${i}_RESET_DAY`, `NODE${i}_RESET_DAY`)) || 1,
   });
 
   const servers = [getServer(1), getServer(2)].filter(s => s.host);
@@ -53,12 +49,6 @@ export default async function (ctx) {
     if (b >= 1024 ** 2) return (b / 1024 ** 2).toFixed(1) + 'M';
     if (b >= 1024) return (b / 1024).toFixed(0) + 'K';
     return Math.round(b) + 'B';
-  };
-
-  const getTrafficColor = (pct) => {
-    if (pct >= 85) return C.red;
-    if (pct >= 60) return C.disk;
-    return C.netRx;
   };
 
   const normalizePrivateKey = (privateKey) => {
@@ -77,29 +67,9 @@ export default async function (ctx) {
     return `${header}\n${lines.join('\n')}\n${footer}`;
   };
 
-  const nextResetDate = (resetDay) => {
-    const now = new Date();
-    let y = now.getFullYear();
-    let m = now.getMonth();
-    if (now.getDate() >= resetDay) m += 1;
-    if (m > 11) {
-      m = 0;
-      y += 1;
-    }
-    return `${m + 1}月${resetDay}日`;
-  };
-
   const runProbe = async (server) => {
     let session;
     try {
-      let bwhData = null;
-      if (server.bwhVeid && server.bwhApiKey) {
-        try {
-          const resp = await ctx.http.get(`https://api.64clouds.com/v1/getServiceInfo?veid=${server.bwhVeid}&api_key=${server.bwhApiKey}`, { timeout: 5000 });
-          bwhData = await resp.json();
-        } catch (_) {}
-      }
-
       const finalKey = normalizePrivateKey(server.privateKey);
       session = await ctx.ssh.connect({
         host: server.host,
@@ -182,23 +152,6 @@ export default async function (ctx) {
       }
       ctx.storage.setJSON(netKey, { rx: netRx, tx: netTx, ts: now });
 
-      let tfUsed;
-      let tfTotal;
-      let tfReset;
-      if (bwhData && bwhData.data_counter !== undefined) {
-        tfUsed = Number(bwhData.data_counter) || 0;
-        tfTotal = Number(bwhData.plan_monthly_data) || 1;
-        const reset = new Date((bwhData.data_next_reset || 0) * 1000);
-        tfReset = `${reset.getMonth() + 1}月${reset.getDate()}日`;
-        if (bwhData.ip_addresses && bwhData.ip_addresses[0]) ipInfo = bwhData.ip_addresses[0];
-        if (bwhData.node_location) locInfo = bwhData.node_location;
-      } else {
-        tfUsed = netRx + netTx;
-        tfTotal = server.trafficLimitGB * (1024 ** 3);
-        tfReset = nextResetDate(server.resetDay);
-      }
-      const tfPct = Math.min((tfUsed / tfTotal) * 100, 100) || 0;
-
       return {
         ok: true,
         id: server.id,
@@ -215,10 +168,6 @@ export default async function (ctx) {
         diskPct,
         rxRate,
         txRate,
-        tfUsed,
-        tfTotal,
-        tfPct,
-        tfReset,
         ipInfo,
         locInfo,
       };
@@ -306,9 +255,8 @@ export default async function (ctx) {
     const rows = [
       metricRow('cpu', `CPU ${d.cores}C`, d.cpuPct, `${d.cpuPct}%`, C.cpu),
       metricRow('memorychip', 'MEM', d.memPct, `${d.memPct}%`, C.mem),
-      metricRow('antenna.radiowaves.left.and.right', 'TRAF', d.tfPct, `${d.tfPct.toFixed(compact ? 0 : 1)}%`, getTrafficColor(d.tfPct)),
+      metricRow('internaldrive', 'DSK', d.diskPct, `${d.diskPct}%`, C.disk),
     ];
-    if (!compact) rows.push(metricRow('internaldrive', 'DSK', d.diskPct, `${d.diskPct}%`, C.disk));
 
     return {
       type: 'stack',
@@ -351,7 +299,7 @@ export default async function (ctx) {
           children: [
             { type: 'text', text: `UP ${d.uptime}`, font: { size: 9, weight: 'medium' }, textColor: C.dim, maxLines: 1 },
             { type: 'spacer' },
-            { type: 'text', text: `RST ${d.tfReset}`, font: { size: 9, family: 'Menlo' }, textColor: C.dim, maxLines: 1 },
+            { type: 'text', text: `LOAD ${d.load.join(' ')}`, font: { size: 9, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.75 },
           ],
         },
       ],

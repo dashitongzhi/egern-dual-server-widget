@@ -28,11 +28,4 @@ egern:/modules/new?name=Dual%20Server%20Monitor&url=https%3A%2F%2Fraw.githubuser
 
 第二台服务器使用同名的 `SERVER_2_*` 变量。
 
-如果是搬瓦工服务器，可以额外填写：
-
-- `SERVER_1_BWH_VEID`
-- `SERVER_1_BWH_API_KEY`
-- `SERVER_2_BWH_VEID`
-- `SERVER_2_BWH_API_KEY`
-
-未填写搬瓦工 API 时，流量占比会用 SSH 读取到的网卡累计流量除以 `SERVER_N_TRAFFIC_LIMIT` 估算。
+小组件会通过 SSH 读取 CPU、内存、磁盘、运行时间、公网 IP/位置和实时上下行速度。

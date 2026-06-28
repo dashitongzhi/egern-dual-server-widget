@@ -28,22 +28,6 @@ env_schema:
     name: "[服务器1] 私钥"
     description: "与密码二选一，支持直接粘贴私钥。"
     default_value: ""
-  SERVER_1_BWH_VEID:
-    name: "[服务器1] 搬瓦工 VEID"
-    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
-    default_value: ""
-  SERVER_1_BWH_API_KEY:
-    name: "[服务器1] 搬瓦工 API Key"
-    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
-    default_value: ""
-  SERVER_1_TRAFFIC_LIMIT:
-    name: "[服务器1] 月流量上限 GB"
-    description: "未填写搬瓦工 API 时用于估算流量占比。"
-    default_value: "2000"
-  SERVER_1_RESET_DAY:
-    name: "[服务器1] 流量重置日"
-    description: "每月几号重置流量。"
-    default_value: "1"
 
   SERVER_2_NAME:
     name: "[服务器2] 显示名称"
@@ -67,22 +51,6 @@ env_schema:
     name: "[服务器2] 私钥"
     description: "与密码二选一，支持直接粘贴私钥。"
     default_value: ""
-  SERVER_2_BWH_VEID:
-    name: "[服务器2] 搬瓦工 VEID"
-    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
-    default_value: ""
-  SERVER_2_BWH_API_KEY:
-    name: "[服务器2] 搬瓦工 API Key"
-    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
-    default_value: ""
-  SERVER_2_TRAFFIC_LIMIT:
-    name: "[服务器2] 月流量上限 GB"
-    description: "未填写搬瓦工 API 时用于估算流量占比。"
-    default_value: "2000"
-  SERVER_2_RESET_DAY:
-    name: "[服务器2] 流量重置日"
-    description: "每月几号重置流量。"
-    default_value: "1"
 
 scriptings:
   - generic:
