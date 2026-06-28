@@ -1,0 +1,95 @@
+name: "Dual Server Monitor 双服务器探针"
+description: "同屏显示两台服务器状态，风格参考 xcgtb/Egern-Widgets 的 Server Monitor 探针。"
+author: "Codex for dashitongzhi"
+homepage: "https://github.com/dashitongzhi/egern-dual-server-widget"
+manual: "https://github.com/dashitongzhi/egern-dual-server-widget#readme"
+icon: server.rack
+
+env_schema:
+  SERVER_1_NAME:
+    name: "[服务器1] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 1"
+  SERVER_1_HOST:
+    name: "[服务器1] 主机地址"
+    description: "SSH 服务器 IP 或域名，必填。"
+    default_value: ""
+  SERVER_1_PORT:
+    name: "[服务器1] SSH 端口"
+    default_value: "22"
+  SERVER_1_USER:
+    name: "[服务器1] 用户名"
+    default_value: "root"
+  SERVER_1_PASSWORD:
+    name: "[服务器1] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_1_KEY:
+    name: "[服务器1] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+  SERVER_1_BWH_VEID:
+    name: "[服务器1] 搬瓦工 VEID"
+    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
+    default_value: ""
+  SERVER_1_BWH_API_KEY:
+    name: "[服务器1] 搬瓦工 API Key"
+    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
+    default_value: ""
+  SERVER_1_TRAFFIC_LIMIT:
+    name: "[服务器1] 月流量上限 GB"
+    description: "未填写搬瓦工 API 时用于估算流量占比。"
+    default_value: "2000"
+  SERVER_1_RESET_DAY:
+    name: "[服务器1] 流量重置日"
+    description: "每月几号重置流量。"
+    default_value: "1"
+
+  SERVER_2_NAME:
+    name: "[服务器2] 显示名称"
+    description: "显示在小组件上的服务器名称。"
+    default_value: "Node 2"
+  SERVER_2_HOST:
+    name: "[服务器2] 主机地址"
+    description: "SSH 服务器 IP 或域名，必填。"
+    default_value: ""
+  SERVER_2_PORT:
+    name: "[服务器2] SSH 端口"
+    default_value: "22"
+  SERVER_2_USER:
+    name: "[服务器2] 用户名"
+    default_value: "root"
+  SERVER_2_PASSWORD:
+    name: "[服务器2] 密码"
+    description: "与私钥二选一。"
+    default_value: ""
+  SERVER_2_KEY:
+    name: "[服务器2] 私钥"
+    description: "与密码二选一，支持直接粘贴私钥。"
+    default_value: ""
+  SERVER_2_BWH_VEID:
+    name: "[服务器2] 搬瓦工 VEID"
+    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
+    default_value: ""
+  SERVER_2_BWH_API_KEY:
+    name: "[服务器2] 搬瓦工 API Key"
+    description: "选填。填写后优先使用 BandwagonHost 流量统计。"
+    default_value: ""
+  SERVER_2_TRAFFIC_LIMIT:
+    name: "[服务器2] 月流量上限 GB"
+    description: "未填写搬瓦工 API 时用于估算流量占比。"
+    default_value: "2000"
+  SERVER_2_RESET_DAY:
+    name: "[服务器2] 流量重置日"
+    description: "每月几号重置流量。"
+    default_value: "1"
+
+scriptings:
+  - generic:
+      name: Dual Server Monitor 双服务器探针
+      script_url: https://raw.githubusercontent.com/dashitongzhi/egern-dual-server-widget/main/DualProbe.js
+      timeout: 20
+
+widgets:
+  - name: Dual Server Monitor 双服务器探针
+    script_name: Dual Server Monitor 双服务器探针
