@@ -1,6 +1,6 @@
 # Egern Multi Server Monitor
 
-同屏显示多台服务器状态的 Egern 小组件，整体风格参考 `xcgtb/Egern-Widgets` 的 `Server Monitor 探针`，服务器卡片布局参考开源项目 Komari 的节点卡片。
+同屏显示多台服务器状态的 Egern 小组件，服务器卡片布局参考开源项目 Komari 的节点卡片，使用暖黑背景、细边框、状态胶囊和连续使用率进度条。
 
 当前最多支持 8 台服务器。Egern 模块参数界面不能动态创建无限字段，所以这里预置 `SERVER_1_*` 到 `SERVER_8_*`，通过 `SERVER_COUNT` 控制启用数量。
 
@@ -37,7 +37,7 @@ egern:/modules/new?name=Multi%20Server%20Monitor&url=https%3A%2F%2Fraw.githubuse
 ## 布局
 
 - 小号组件：1 台时显示一张紧凑 Komari 风格卡片；多台时切换更密的单列卡片。
-- 中号组件：2 台时固定左右两张等宽卡片，按 iPhone 小号组件比例压缩，避免超出边缘。
+- 中号组件：2 台时固定左右两张等宽卡片，外边距按 iPhone 小号组件比例压缩，避免超出边缘。
 - 大号组件：自动两列铺满；5 到 8 台时切换超密卡片，优先保留每台的 `CPU / MEM / TRAF / DSK` 四项。
 
 小组件会通过 SSH 读取 CPU、内存、实时流量、磁盘、累计网卡流量、运行时间、公网 IP/位置和实时上下行速度。每台服务器都显示 `CPU / MEM / TRAF / DSK` 四项，其中 `TRAF` 是 `/proc/net/dev` 两次刷新之间计算出的实时吞吐。

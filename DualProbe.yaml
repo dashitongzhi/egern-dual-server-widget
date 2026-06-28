@@ -1,5 +1,5 @@
 name: "Multi Server Monitor 多服务器探针"
-description: "同屏显示多台服务器状态，采用 Komari 风格自适应节点卡片。"
+description: "同屏显示多台服务器状态，采用 Komari 暖黑风格自适应节点卡片。"
 author: "Codex for dashitongzhi"
 homepage: "https://github.com/dashitongzhi/egern-dual-server-widget"
 manual: "https://github.com/dashitongzhi/egern-dual-server-widget#readme"

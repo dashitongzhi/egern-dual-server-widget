@@ -9,20 +9,18 @@ export default async function (ctx) {
   const env = ctx.env || {};
 
   const C = {
-    bg: { light: '#FFFFFF', dark: '#121212' },
-    barBg: { light: '#0000001A', dark: '#FFFFFF22' },
-    panelBg: { light: '#F7F7FA', dark: '#1F1B16' },
-    text: { light: '#1C1C1E', dark: '#FFFFFF' },
-    dim: { light: '#8E8E93', dark: '#B8B2AA' },
-    faint: { light: '#D9D9DE', dark: '#3C352C' },
-    cpu: { light: '#007AFF', dark: '#0A84FF' },
-    mem: { light: '#AF52DE', dark: '#BF5AF2' },
-    disk: { light: '#FF9500', dark: '#FF9F0A' },
-    netRx: { light: '#34C759', dark: '#30D158' },
-    netTx: { light: '#5856D6', dark: '#5E5CE6' },
-    red: { light: '#FF3B30', dark: '#FF453A' },
-    okBg: { light: '#E7F8EE', dark: '#163724' },
-    okText: { light: '#128A48', dark: '#35E487' },
+    bg: '#140F0C',
+    panelBg: '#231D17',
+    cardBorder: '#4A4035',
+    barBg: '#37322C',
+    text: '#F6F2EC',
+    dim: '#B9B0A6',
+    faint: '#54483C',
+    green: '#35B779',
+    orange: '#FF9D4D',
+    red: '#FF5D55',
+    okBg: '#1F432F',
+    okText: '#47E290',
   };
 
   const read = (...keys) => {
@@ -69,8 +67,8 @@ export default async function (ctx) {
   const networkRateText = (d) => `↑ ${fmtBytes(d.txRate || 0)}/s ↓ ${fmtBytes(d.rxRate || 0)}/s`;
   const usageColor = (pct, fallback) => {
     if (pct >= 80) return C.red;
-    if (pct >= 60) return C.disk;
-    return fallback || C.netRx;
+    if (pct >= 60) return C.orange;
+    return fallback || C.green;
   };
 
   const normalizePrivateKey = (privateKey) => {
@@ -111,7 +109,7 @@ export default async function (ctx) {
         'df -B1 / | tail -1',
         'nproc',
         "sh -c '. /etc/os-release 2>/dev/null; printf \"%s / %s\" \"${NAME:-Linux}\" \"$(uname -m)\"'",
-        "curl -s -m 2 http://ip-api.com/line?fields=country,city,query || echo ''",
+        "curl -s -m 2 http://ip-api.com/line?fields=country,countryCode,city,query || echo ''",
         "awk '/^ *(eth|en|wlan|ens|eno|bond|veth)/{rx+=$2;tx+=$10}END{print rx,tx}' /proc/net/dev",
       ];
       const { stdout } = await session.exec(cmds.join(` && echo '${SEP}' && `));
@@ -153,8 +151,13 @@ export default async function (ctx) {
 
       let ipInfo = server.host;
       let locInfo = '未知';
+      let countryCode = '';
       const ipApiLines = (p[8] || '').split('\n').map(s => s.trim()).filter(Boolean);
-      if (ipApiLines.length >= 3) {
+      if (ipApiLines.length >= 4) {
+        countryCode = ipApiLines[1] || '';
+        locInfo = `${ipApiLines[0]} ${ipApiLines[2]}`.replace(/United States/g, 'US').replace(/United Kingdom/g, 'UK');
+        ipInfo = ipApiLines[3];
+      } else if (ipApiLines.length >= 3) {
         locInfo = `${ipApiLines[0]} ${ipApiLines[1]}`.replace(/United States/g, 'US').replace(/United Kingdom/g, 'UK');
         ipInfo = ipApiLines[2];
       }
@@ -198,6 +201,7 @@ export default async function (ctx) {
         netPct: throughputPct(rxRate, txRate),
         ipInfo,
         locInfo,
+        countryCode,
       };
     } catch (e) {
       if (session) {
@@ -212,21 +216,24 @@ export default async function (ctx) {
     }
   };
 
-  const bar = (pct, color, h = 5, segCount = 18) => {
-    const activeCount = Math.round((Math.max(0, Math.min(100, pct)) / 100) * segCount);
+  const flagEmoji = (code) => {
+    const cc = String(code || '').trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(cc)) return '▣';
+    return String.fromCodePoint(...[...cc].map(c => 127397 + c.charCodeAt(0)));
+  };
+
+  const bar = (pct, color, h = 4) => {
+    const fill = Math.max(0, Math.min(100, Number(pct) || 0));
     return {
       type: 'stack',
       direction: 'row',
       height: h,
-      gap: 1.5,
-      children: Array.from({ length: segCount }).map((_, i) => ({
-        type: 'stack',
-        flex: 1,
-        height: h,
-        borderRadius: 1,
-        backgroundColor: i < activeCount ? color : C.barBg,
-        opacity: i < activeCount ? 0.45 + 0.55 * (i / Math.max(activeCount - 1, 1)) : 1,
-      })),
+      borderRadius: h / 2,
+      backgroundColor: C.barBg,
+      children: [
+        { type: 'stack', flex: Math.max(0.1, fill), height: h, borderRadius: h / 2, backgroundColor: color, children: [] },
+        ...(fill < 100 ? [{ type: 'stack', flex: Math.max(0.1, 100 - fill), children: [] }] : []),
+      ],
     };
   };
 
@@ -241,116 +248,114 @@ export default async function (ctx) {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: opts.gap || 4,
+    ...(opts.height ? { height: opts.height } : {}),
     children: [
-      { type: 'text', text: label, font: { size: opts.labelSize || 9, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.75 },
+      { type: 'text', text: label, font: { size: opts.labelSize || 9, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
       { type: 'spacer' },
-      { type: 'text', text: value, font: { size: opts.valueSize || 10, weight: opts.weight || 'bold', family: opts.mono ? 'Menlo' : undefined }, textColor: opts.color || C.text, maxLines: 1, minScale: opts.minScale || 0.55 },
+      { type: 'text', text: value, font: { size: opts.valueSize || 10, weight: opts.weight || 'bold', family: opts.mono ? 'Menlo' : undefined }, textColor: opts.color || C.text, maxLines: 1, minScale: opts.minScale || 0.45 },
     ],
   });
 
-  const miniMetric = (label, pct, value, color, detail, compactTile) => ({
+  const metricLine = (label, pct, value, color, dense) => ({
     type: 'stack',
     direction: 'column',
-    gap: compactTile ? 2 : 3,
+    gap: dense ? 1 : 2,
+    height: dense ? 13 : 16,
     children: [
-      labelValueRow(label, value, { labelSize: compactTile ? 8 : 9, valueSize: compactTile ? 9 : 10, color, mono: true }),
-      bar(pct, color, compactTile ? 3 : 4, compactTile ? 12 : 16),
-      ...(detail && !compactTile ? [{ type: 'text', text: detail, font: { size: 8, family: 'Menlo' }, textColor: C.dim, maxLines: 1, minScale: 0.55 }] : []),
+      labelValueRow(label, value, { labelSize: dense ? 7 : 9, valueSize: dense ? 7 : 9, color, mono: true, height: dense ? 8 : 10 }),
+      bar(pct, color, dense ? 3 : 4),
     ],
   });
 
-  const metricGrid = (d, tinyTile) => {
-    const metricItems = [
-      miniMetric('CPU', d.cpuPct, `${d.cpuPct}%`, usageColor(d.cpuPct, C.netRx), null, true),
-      miniMetric('MEM', d.memPct, `${d.memPct}%`, usageColor(d.memPct, C.netRx), null, true),
-      miniMetric('TRAF', d.netPct, throughputText(d), C.netRx, null, true),
-      miniMetric('DSK', d.diskPct, `${d.diskPct}%`, usageColor(d.diskPct, C.netRx), null, true),
-    ];
-    return {
-      type: 'stack',
-      direction: 'column',
-      gap: tinyTile ? 3 : 4,
-      children: [
-        { type: 'stack', direction: 'row', gap: tinyTile ? 5 : 7, children: [{ ...metricItems[0], flex: 1 }, { ...metricItems[1], flex: 1 }] },
-        { type: 'stack', direction: 'row', gap: tinyTile ? 5 : 7, children: [{ ...metricItems[2], flex: 1 }, { ...metricItems[3], flex: 1 }] },
-      ],
-    };
-  };
+  const metricLines = (d, dense) => [
+    metricLine('CPU', d.cpuPct, `${d.cpuPct}%`, usageColor(d.cpuPct, C.green), dense),
+    metricLine('MEM', d.memPct, `${d.memPct}%`, usageColor(d.memPct, C.green), dense),
+    metricLine('TRAF', d.netPct, throughputText(d), C.green, dense),
+    metricLine('DSK', d.diskPct, `${d.diskPct}%`, usageColor(d.diskPct, C.green), dense),
+  ];
 
   const serverTile = (d, opts = {}) => {
     const compactTile = !!opts.compactTile;
     const tinyTile = !!opts.tinyTile;
-    const pad = tinyTile ? [7, 7] : compactTile ? [8, 8] : [10, 10];
-    const titleSize = tinyTile ? 10 : compactTile ? 11 : 13;
-    const statusSize = tinyTile ? 8 : compactTile ? 9 : 10;
+    const dense = compactTile || tinyTile;
+    const pad = tinyTile ? [5, 6] : compactTile ? [7, 7] : [10, 10];
+    const titleSize = tinyTile ? 9 : compactTile ? 10 : 13;
+    const statusSize = tinyTile ? 7 : compactTile ? 8 : 9;
+    const headerIcon = tinyTile ? 13 : compactTile ? 15 : 18;
+    const cardGap = tinyTile ? 2 : compactTile ? 3 : 5;
+    const metaSize = tinyTile ? 7 : compactTile ? 7 : 9;
+    const cardRadius = 8;
 
-    if (!d.ok) {
-      return {
-        type: 'stack',
-        direction: 'column',
-        gap: 5,
-        padding: pad,
-        borderRadius: 8,
-        backgroundColor: C.panelBg,
-        children: [
-          {
-            type: 'stack',
-            direction: 'row',
-            alignItems: 'center',
-            gap: 5,
-            children: [
-              { type: 'image', src: 'sf-symbol:xmark.octagon.fill', color: C.red, width: 12, height: 12 },
-              { type: 'text', text: d.hostname, font: { size: titleSize, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.55 },
-              { type: 'spacer' },
-              { type: 'text', text: '离线', font: { size: statusSize, weight: 'bold' }, textColor: C.red, maxLines: 1 },
-            ],
-          },
-          divider(),
-          { type: 'text', text: d.error, font: { size: 9 }, textColor: C.dim, maxLines: 3, minScale: 0.55 },
-        ],
-      };
-    }
-
-    return {
+    const cardShell = (children) => ({
       type: 'stack',
       direction: 'column',
-      gap: tinyTile ? 3 : compactTile ? 4 : 5,
-      padding: pad,
-      borderRadius: 8,
-      backgroundColor: C.panelBg,
+      flex: 1,
+      padding: [1, 1],
+      borderRadius: cardRadius + 1,
+      backgroundColor: C.cardBorder,
       children: [
+        {
+          type: 'stack',
+          direction: 'column',
+          flex: 1,
+          gap: cardGap,
+          padding: pad,
+          borderRadius: cardRadius,
+          backgroundColor: C.panelBg,
+          children,
+        },
+      ],
+    });
+
+    if (!d.ok) {
+      return cardShell([
         {
           type: 'stack',
           direction: 'row',
           alignItems: 'center',
           gap: 5,
+          height: tinyTile ? 13 : 16,
           children: [
-            { type: 'image', src: 'sf-symbol:server.rack', color: C.text, width: tinyTile ? 11 : 13, height: tinyTile ? 11 : 13 },
+            { type: 'image', src: 'sf-symbol:xmark.octagon.fill', color: C.red, width: headerIcon, height: headerIcon },
             { type: 'text', text: d.hostname, font: { size: titleSize, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.45 },
             { type: 'spacer' },
-            { type: 'image', src: 'sf-symbol:arrow.up.right', color: C.disk, width: tinyTile ? 8 : 10, height: tinyTile ? 8 : 10 },
-            { type: 'text', text: '在线', font: { size: statusSize, weight: 'bold' }, textColor: C.okText, backgroundColor: C.okBg, padding: [2, 5], borderRadius: 4, maxLines: 1 },
+            { type: 'text', text: '离线', font: { size: statusSize, weight: 'bold' }, textColor: C.red, maxLines: 1 },
           ],
         },
-        ...(tinyTile ? [
-          metricGrid(d, true),
-          labelValueRow('总量', trafficTotalText(d), { labelSize: 8, valueSize: 8, mono: true, minScale: 0.45 }),
-        ] : [
-          divider(),
-          labelValueRow('OS', d.osInfo, { labelSize: 8, valueSize: compactTile ? 8 : 10, minScale: 0.45 }),
-          compactTile ? metricGrid(d, false) : [
-            miniMetric('CPU', d.cpuPct, `${d.cpuPct}%`, usageColor(d.cpuPct, C.netRx), null, false),
-            miniMetric('MEM', d.memPct, `${d.memPct}%`, usageColor(d.memPct, C.netRx), `${fmtBytes(d.memUsed)} / ${fmtBytes(d.memTotal)}`, false),
-            miniMetric('TRAF', d.netPct, throughputText(d), C.netRx, null, false),
-            miniMetric('DSK', d.diskPct, `${d.diskPct}%`, usageColor(d.diskPct, C.netRx), `${fmtBytes(d.diskUsed)} / ${fmtBytes(d.diskTotal)}`, false),
-          ],
-          labelValueRow('总流量', trafficTotalText(d), { labelSize: 8, valueSize: compactTile ? 8 : 9, mono: true, minScale: 0.45 }),
-          labelValueRow('网络', networkRateText(d), { labelSize: 8, valueSize: compactTile ? 8 : 9, mono: true, minScale: 0.45 }),
-          labelValueRow('运行时间', d.uptime, { labelSize: 8, valueSize: compactTile ? 8 : 9, mono: true, minScale: 0.45 }),
-        ].flat()),
-      ],
-    };
+        divider(),
+        { type: 'text', text: d.error, font: { size: metaSize }, textColor: C.dim, maxLines: tinyTile ? 2 : 3, minScale: 0.45 },
+      ]);
+    }
+
+    return cardShell([
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        gap: tinyTile ? 3 : 5,
+        height: tinyTile ? 13 : compactTile ? 16 : 20,
+        children: [
+          { type: 'text', text: flagEmoji(d.countryCode), font: { size: tinyTile ? 12 : 15 }, textColor: C.text, maxLines: 1 },
+          { type: 'text', text: d.hostname, font: { size: titleSize, weight: 'bold' }, textColor: C.text, maxLines: 1, minScale: 0.38 },
+          { type: 'spacer' },
+          { type: 'image', src: 'sf-symbol:arrow.up.right', color: C.orange, width: tinyTile ? 7 : 9, height: tinyTile ? 7 : 9 },
+          { type: 'text', text: '在线', font: { size: statusSize, weight: 'bold' }, textColor: C.okText, backgroundColor: C.okBg, padding: tinyTile ? [1, 4] : [2, 5], borderRadius: 4, maxLines: 1 },
+        ],
+      },
+      divider(),
+      ...(tinyTile ? [] : [
+        labelValueRow('OS', d.osInfo, { labelSize: metaSize, valueSize: metaSize, minScale: 0.35, height: dense ? 9 : 12 }),
+      ]),
+      ...metricLines(d, dense),
+      ...(tinyTile ? [
+        labelValueRow('NET', throughputText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.4, height: 8 }),
+      ] : [
+        labelValueRow('总流量', trafficTotalText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: dense ? 9 : 12 }),
+        labelValueRow('网络', networkRateText(d), { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: dense ? 9 : 12 }),
+        labelValueRow('运行时间', d.uptime, { labelSize: metaSize, valueSize: metaSize, mono: true, minScale: 0.35, height: dense ? 9 : 12 }),
+      ]),
+    ]);
   };
 
   const tileRows = (items, columns, compactTile, tinyTile) => {
@@ -361,7 +366,7 @@ export default async function (ctx) {
         const item = items[i + j];
         children.push(item ? { ...serverTile(item, { compactTile, tinyTile }), flex: 1 } : { type: 'spacer', flex: 1 });
       }
-      rows.push({ type: 'stack', direction: 'row', gap: tinyTile ? 5 : 7, children });
+      rows.push({ type: 'stack', direction: 'row', flex: 1, gap: tinyTile ? 5 : 7, children });
     }
     return rows;
   };
@@ -393,19 +398,19 @@ export default async function (ctx) {
   let tinyTile = false;
 
   if (isSmall) {
-    padding = count > 1 ? [5, 5] : [7, 7];
+    padding = [5, 5];
     gap = 4;
     columns = 1;
     compactTile = true;
     tinyTile = count > 1;
   } else if (isMedium) {
-    padding = [7, 7];
-    gap = 6;
+    padding = [4, 5];
+    gap = 5;
     columns = count === 1 ? 1 : 2;
     compactTile = true;
     tinyTile = count > 2;
   } else if (isLarge) {
-    padding = [9, 9];
+    padding = [7, 7];
     gap = 6;
     columns = count === 1 ? 1 : 2;
     compactTile = count > 1;
