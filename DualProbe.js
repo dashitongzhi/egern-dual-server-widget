@@ -251,9 +251,9 @@ export default async function (ctx) {
     gap: opts.gap || 4,
     ...(opts.height ? { height: opts.height } : {}),
     children: [
-      { type: 'text', text: label, font: { size: opts.labelSize || 9, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
+      { type: 'text', text: label, font: { size: opts.labelSize || 10, weight: 'medium' }, textColor: C.dim, maxLines: 1, minScale: 0.7 },
       { type: 'spacer' },
-      { type: 'text', text: value, font: { size: opts.valueSize || 10, weight: opts.weight || 'bold', family: opts.mono ? 'Menlo' : undefined }, textColor: opts.color || C.text, maxLines: 1, minScale: opts.minScale || 0.45 },
+      { type: 'text', text: value, font: { size: opts.valueSize || 11, weight: opts.weight || 'bold', family: opts.mono ? 'Menlo' : undefined }, textColor: opts.color || C.text, maxLines: 1, minScale: opts.minScale || 0.45 },
     ],
   });
 
@@ -264,8 +264,8 @@ export default async function (ctx) {
     height: tinyTile ? 9 : compactTile ? 11 : 16,
     children: [
       labelValueRow(label, value, {
-        labelSize: tinyTile ? 6.5 : compactTile ? 7 : 9,
-        valueSize: tinyTile ? 6.5 : compactTile ? 7 : 9,
+        labelSize: tinyTile ? 7.5 : compactTile ? 8 : 10,
+        valueSize: tinyTile ? 7.5 : compactTile ? 8 : 10,
         color,
         mono: true,
         height: tinyTile ? 6 : compactTile ? 7 : 10,
@@ -285,11 +285,11 @@ export default async function (ctx) {
     const compactTile = !!opts.compactTile;
     const tinyTile = !!opts.tinyTile;
     const pad = tinyTile ? [4, 5] : compactTile ? [7, 8] : [11, 12];
-    const titleSize = tinyTile ? 9 : compactTile ? 10 : 13;
-    const statusSize = tinyTile ? 7 : compactTile ? 8 : 9;
+    const titleSize = tinyTile ? 10 : compactTile ? 11 : 14;
+    const statusSize = tinyTile ? 8 : compactTile ? 9 : 10;
     const headerIcon = tinyTile ? 12 : compactTile ? 15 : 18;
     const cardGap = tinyTile ? 1 : compactTile ? 2 : 5;
-    const metaSize = tinyTile ? 7 : compactTile ? 7 : 9;
+    const metaSize = tinyTile ? 8 : compactTile ? 8 : 10;
     const cardRadius = tinyTile ? 14 : compactTile ? 18 : 22;
 
     const cardShell = (children) => ({
